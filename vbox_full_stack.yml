@@ -113,4 +113,4 @@
       become: yes
       become_method: sudo
     - name: start nodejs app
-      command: nohup nodejs /home/demo/kaybus/vbox/nodejs/myFirstHTTPServer.js &
+      command: nohup nodejs /home/kaybus/myFirstHTTPServer.js &
