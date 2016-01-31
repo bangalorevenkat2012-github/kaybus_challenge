@@ -86,8 +86,8 @@
       notify: restart nginx
       become: yes
       become_method: sudo
-    - name: service nginx
-      action: service name=nginx state=started
+    - name: service nginx 
+      action: service name=nginx state=started 
   handlers:
     - name: restart nginx
       service: name=nginx state=restarted
@@ -109,7 +109,7 @@
       with_items:
         - nodejs
     - name: nodejs - Copy Default configuration
-      copy: src=/home/demo/nodejs/myFirstHTTPServer.js dest=/home/kaybus/myFirstHTTPServer.js owner=kaybus group=kaybus mode=0644
+      copy: src=/home/demo/kaybus/vbox/nodejs/myFirstHTTPServer.js dest=/home/kaybus/myFirstHTTPServer.js owner=kaybus group=kaybus mode=0644
       become: yes
       become_method: sudo
     - name: start nodejs app
