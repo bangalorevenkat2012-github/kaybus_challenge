@@ -1,0 +1,116 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    nginx_server_vbox_name: nginx_2
+    nginx_server_vrde_port: 7777
+    nginx_server_ssh_port: 7722
+    nginx_server_http_port: 7780
+    nodejs_server_vbox_name: nodejs_2
+    nodejs_server_vrde_port: 8888
+    nodejs_server_ssh_port: 8822
+    nodejs_server_http_port: 8880
+  tasks:
+   - name: nginx - Clone VM
+     command: vboxmanage clonevm "ubuntu_14.04_32bit" --name "{{ nginx_server_vbox_name }}" --register
+     register: clone_vm
+   - debug: var=clone_vm.stdout_lines
+   - name: nginx - Set VRDE Port
+     command: vboxmanage modifyvm "{{ nginx_server_vbox_name }}" --vrdeport {{ nginx_server_vrde_port }}
+     register: vrde_port
+   - debug: var=vrde_port.stdout_lines
+   - name: nginx - Set SSH Port
+     command: vboxmanage modifyvm "{{ nginx_server_vbox_name }}" --natpf1 "host2guest-ssh,tcp,,{{ nginx_server_ssh_port }},,22"
+     register: ssh_port
+   - debug: var=ssh_port.stdout_lines
+   - name: nginx - Set HTTP Port Forward
+     command: vboxmanage modifyvm "{{ nginx_server_vbox_name }}" --natpf1 "host2guest-nginx,tcp,,{{ nginx_server_http_port }},,80"
+     register: http_port
+   - debug: var=http_port.stdout_lines
+   - name: nginx - internal network
+     command: vboxmanage modifyvm "{{ nginx_server_vbox_name }}" --nic2 intnet
+     register: intnet_vm
+   - debug: var=intnet_vm.stdout_lines
+   - name: nginx - Start nginx VM
+     command: vboxmanage startvm "{{ nginx_server_vbox_name }}" --type headless
+     register: start_vm
+   - debug: var=start_vm.stdout_lines
+   - name: nodejs - Clone VM
+     command: vboxmanage clonevm "ubuntu_14.04_32bit" --name "{{ nodejs_server_vbox_name }}" --register
+     register: clone_vm
+   - debug: var=clone_vm.stdout_lines
+   - name: nodejs - Set VRDE Port
+     command: vboxmanage modifyvm "{{ nodejs_server_vbox_name }}" --vrdeport {{ nodejs_server_vrde_port }}
+     register: vrde_port
+   - debug: var=vrde_port.stdout_lines
+   - name: nodejs - Set SSH Port
+     command: vboxmanage modifyvm "{{ nodejs_server_vbox_name }}" --natpf1 "host2guest-ssh,tcp,,{{ nodejs_server_ssh_port }},,22"
+     register: ssh_port
+   - debug: var=ssh_port.stdout_lines
+   - name: nodejs - Set HTTP Port Forward
+     command: vboxmanage modifyvm "{{ nodejs_server_vbox_name }}" --natpf1 "host2guest-nodejs,tcp,,{{ nodejs_server_http_port }},,8080"
+     register: http_port
+   - debug: var=http_port.stdout_lines
+   - name: nodejs - internal network
+     command: vboxmanage modifyvm "{{ nodejs_server_vbox_name }}" --nic2 intnet
+     register: intnet_vm
+   - debug: var=intnet_vm.stdout_lines
+   - name: nodejs - Start nodejs VM
+     command: vboxmanage startvm "{{ nodejs_server_vbox_name }}" --type headless
+     register: start_vm
+   - debug: var=start_vm.stdout_lines
+   - name: nginx - Wait for SSH to come up on nginx server
+     wait_for: host=localhost port={{ nginx_server_ssh_port }} delay=60 timeout=320 state=started delay=150
+   - name: nodejs - Wait for SSH to come up on nodejs server
+     wait_for: host=localhost port={{ nodejs_server_ssh_port }} delay=60 timeout=320 state=started delay=150
+
+- hosts: nginx_server
+  user: kaybus
+  gather_facts: true
+  tasks:
+    - name: nginx - Update apt cache
+      apt: update_cache=yes cache_valid_time=3600
+      become: yes
+      become_method: sudo
+
+    - name: nginx - Install required software
+      apt: name={{ item }} state=installed
+      become: yes
+      become_method: sudo
+      with_items:
+        - python-software-properties
+        - nginx
+    - name: nginx - Copy Default configuration
+      copy: src=/home/demo/kaybus/vbox/nginx/default dest=/etc/nginx/sites-available/default owner=kaybus group=kaybus mode=0644
+      notify: restart nginx
+      become: yes
+      become_method: sudo
+    - name: service nginx
+      action: service name=nginx state=started
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted
+      become: yes
+      become_method: sudo
+- hosts: nodejs_server
+  user: kaybus
+  gather_facts: true
+  tasks:
+    - name: nodejs - Update apt cache
+      apt: update_cache=yes cache_valid_time=3600
+      become: yes
+      become_method: sudo
+
+    - name: nodejs - Install required software
+      apt: name={{ item }} state=installed
+      become: yes
+      become_method: sudo
+      with_items:
+        - nodejs
+    - name: nodejs - Copy Default configuration
+      copy: src=/home/demo/nodejs/myFirstHTTPServer.js dest=/home/kaybus/myFirstHTTPServer.js owner=kaybus group=kaybus mode=0644
+      become: yes
+      become_method: sudo
+    - name: start nodejs app
+      command: nohup nodejs /home/demo/kaybus/vbox/nodejs/myFirstHTTPServer.js &
