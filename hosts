@@ -1,0 +1,8 @@
+[localhost]
+localhost
+
+[nginx_server]
+nginx ansible_host=localhost ansible_ssh_port=7722
+
+[nodejs_server]
+nodejs ansible_host=localhost ansible_ssh_port=8822
